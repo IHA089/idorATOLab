@@ -307,6 +307,7 @@ def forgot():
                     conn.commit()
                 conn.close()
                 for username in uuname:
+                    username = username.replace(" ","")
                     cmplt_url = "https://iha089-labs.in/reset?token="+token
                     bdcontent = "<h2>Reset Your Account password</h2><p>Click the button below to reset your account password on Improper Access Control Lab</p><a href=\""+cmplt_url+"\">Verify Your Account</a><p>If you did not request this, please ignore this email.</p>"
                     mail_server = "https://127.0.0.1:7089/dcb8df93f8885473ad69681e82c423163edca1b13cf2f4c39c1956b4d32b4275"
