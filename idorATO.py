@@ -2,21 +2,28 @@ import logging
 from flask import Flask, request, make_response, render_template, session, jsonify, redirect, url_for, flash
 from functools import wraps
 import jwt as pyjwt
-import uuid, datetime, sqlite3, hashlib, random, os, secrets, requests, string
+import uuid, datetime, sqlite3, hashlib, random, os, secrets, requests, string, urllib3
 
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 lab_type = "AccountTakeover"
 lab_name = "idorATOLab"
 
 user_data = {}
+flag_data = {}
 
 idorATO = Flask(__name__)
 idorATO.secret_key = "vulnerable_lab_by_IHA089"
 
 JWT_SECRET = "MoneyIsPower"
+
+def generate_flag(length=10):
+    charset = string.ascii_letters + string.digits
+    random_string = ''.join(random.choices(charset, k=length))
+    return random_string
 
 def create_database():
     db_path = os.path.join(os.getcwd(), lab_type, lab_name, 'users.db')
@@ -128,6 +135,10 @@ def term_html():
         session.clear()
     return render_template('term.html', user=session.get('user'))
 
+@idorATO.route('/check.html')
+def check_html():
+    return render_template('check.html', user=session.get('user'))
+    
 @idorATO.route('/privacy.html')
 def privacy_html():
     if not check_cookies():
@@ -205,7 +216,7 @@ def resend():
                     "bodycontent":bdcontent
                 }
         try:
-            k = requests.post(mail_server, json = payload)
+            k = requests.post(mail_server, json = payload, verify=False)
         except:
             return jsonify({"error": "Mail server is not responding"}), 500
         error_message="code sent"
@@ -298,6 +309,10 @@ def resetpassword():
     else:
         flash("Invalid token. Please try again.")
         return redirect(url_for('home'))
+
+@idorATO.route('/check', methods=['POST'])
+def check():
+    session_code = request.form.get('sessioncode')
     
 @idorATO.route('/join', methods=['GET', 'POST'])
 def join():
@@ -337,7 +352,7 @@ def join():
                     "bodycontent":bdcontent
                 }
         try:
-            k = requests.post(mail_server, json = payload)
+            k = requests.post(mail_server, json = payload, verify=False)
         except:
             return jsonify({"error": "Mail server is not responding"}), 500
 
@@ -411,7 +426,7 @@ def forgot():
                                 "bodycontent":bdcontent
                         }
                     try:
-                        k = requests.post(mail_server, json = payload)
+                        k = requests.post(mail_server, json = payload, verify=False)
                     except:
                         return jsonify({"error": "Mail server is not responding"}), 500
                     
@@ -432,11 +447,14 @@ def dashboard():
         session.clear()
     if 'user' not in session:
         return redirect(url_for('login_html'))
-    admin_list=['admin', 'administrator']
-    if session.get('user') in admin_list:
-        return render_template('admin-dashboard.html', user=session.get('user'))
+        
+    username = session.get('user')
+    if username not in flag_data:
+        flag_data[username] = generate_flag()
 
-    return render_template('dashboard.html', user=session.get('user'))
+    flag_code = flag_data[username]
+
+    return render_template('dashboard.html', user=session.get('user'), flag=flag_code)
 
 @idorATO.route('/logout.html')
 def logout():
