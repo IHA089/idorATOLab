@@ -14,6 +14,8 @@ lab_name = "idorATOLab"
 
 user_data = {}
 flag_data = {}
+flag_status = {}
+check_token = {}
 
 idorATO = Flask(__name__)
 idorATO.secret_key = "vulnerable_lab_by_IHA089"
@@ -284,6 +286,12 @@ def resetpassword():
     if not token or token == "11111111111111111111":
         flash("Token is missing.")
         return redirect(url_for('home'))
+    
+    for key, value in check_token.items():
+        if value == token:
+            flag_status[key] = flag_status[key] + 1
+            break
+
     query = "SELECT gmail FROM token_info where token = ?"
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -313,6 +321,11 @@ def resetpassword():
 @idorATO.route('/check', methods=['POST'])
 def check():
     session_code = request.form.get('sessioncode')
+
+    if session_code in flag_data.values():
+        return render_template('success.html', user=session.get('user'))
+    else:
+        return render_template('check.html', error="wrong session code")
     
 @idorATO.route('/join', methods=['GET', 'POST'])
 def join():
@@ -376,6 +389,11 @@ def reset():
     result = cursor.fetchone()
     conn.close()
     if result:
+        for key, value in check_token.items():
+            if value == token:
+                flag_status[key] = flag_status[key]+1
+                break
+        
         return render_template('reset-password.html', token=token)
     else:
         flash("Invalid token. Please try again.")
@@ -415,8 +433,13 @@ def forgot():
                     cursor.execute(query)
                     conn.commit()
                 conn.close()
+
                 for username in uuname:
                     username = username.replace(" ","")
+                    if len(uuname) >= 2:
+                        flag_status[uuname[0]] = 1
+                        check_token[uuname[0]] = token
+
                     cmplt_url = "https://iha089-labs.in/reset?token="+token
                     bdcontent = "<h2>Reset Your Account password</h2><p>Click the button below to reset your account password on Improper Access Control Lab</p><a href=\""+cmplt_url+"\">Verify Your Account</a><p>If you did not request this, please ignore this email.</p>"
                     mail_server = "https://127.0.0.1:7089/dcb8df93f8885473ad69681e82c423163edca1b13cf2f4c39c1956b4d32b4275"
@@ -449,10 +472,15 @@ def dashboard():
         return redirect(url_for('login_html'))
         
     username = session.get('user')
-    if username not in flag_data:
-        flag_data[username] = generate_flag()
-
-    flag_code = flag_data[username]
+    if username in flag_status:
+        if flag_status[username] == 3:
+            if username not in flag_data:
+                flag_data[username] = generate_flag()
+            flag_code = flag_data[username]
+        else:
+            flag_code = ""
+    else:
+        flag_code = ""
 
     return render_template('dashboard.html', user=session.get('user'), flag=flag_code)
 
@@ -505,4 +533,3 @@ def add_cache_control_headers(response):
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     return response
-
